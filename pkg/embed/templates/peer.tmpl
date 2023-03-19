@@ -67,7 +67,9 @@ protocol bgp {{ UniqueProtocolName $peer.ProtocolName $af $peer.ASN }} {
     {{ range $i, $af := $protocols }}
     ipv{{ $af }} {
         {{ if BoolDeref $global.KeepFiltered }}import keep filtered;{{ end }}
+        {{ if BoolDeref $peer.FilterMaxPrefix }}
         import limit AS{{ $peer.ASN }}_{{ $peer.ProtocolName }}_IMPORT_v{{ $af }} action {{ $peer.ImportLimitTripAction }};
+        {{ end }}
 
         {{ if (or (and (IntDeref $peer.ReceiveLimit4) (eq $af "4")) (and (IntDeref $peer.ReceiveLimit6) (eq $af "6"))) }}
         receive limit AS{{ $peer.ASN }}_{{ $peer.ProtocolName }}_RECEIVE_v{{ $af }} action {{ $peer.ReceiveLimitTripAction }};
