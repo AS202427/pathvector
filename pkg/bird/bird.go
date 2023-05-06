@@ -102,6 +102,7 @@ func Validate(binary string, cacheDir string) {
 	birdCmd.Stderr = &errb
 	var errbT string
 	if err := birdCmd.Run(); err != nil {
+		origErr := err
 		errbT = strings.TrimSuffix(errb.String(), "\n")
 
 		// Check for validation error in format:
@@ -149,6 +150,9 @@ func Validate(binary string, cacheDir string) {
 				log.Fatalf("BIRD output file scan: %s", err)
 			}
 		}
+		if errorMessageToLog == "" {
+			errorMessageToLog = origErr.Error()
+		}
 		log.Fatalf("BIRD: %s\n", errorMessageToLog)
 	}
 
@@ -185,7 +189,7 @@ func MoveCacheAndReconfigure(birdDirectory string, cacheDirectory string, birdSo
 	}
 
 	if !noConfigure {
-		log.Infoln("Reconfiguring BIRD")
+		log.Info("Reconfiguring BIRD")
 		resp, _, err := RunCommand("configure", birdSocket)
 		if err != nil {
 			log.Fatal(err)

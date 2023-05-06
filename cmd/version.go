@@ -17,25 +17,31 @@ func init() {
 	rootCmd.AddCommand(versionCmd)
 }
 
-func versionBanner() {
-	fmt.Printf(`Pathvector %s
+func versionBanner() string {
+	buf := fmt.Sprintf(`Pathvector %s
 Built %s on %s
-Plugins: `, version, commit, date)
+`, version, commit, date)
 	if len(plugin.Get()) > 0 {
-		fmt.Println("")
+		buf += "Plugins:\n"
 		for name, p := range plugin.Get() {
-			fmt.Printf("  %s - %s [%s]\n", name, p.Description(), reflect.TypeOf(p).PkgPath())
+			buf += fmt.Sprintf("  %s - %s [%s]\n", name, p.Description(), reflect.TypeOf(p).PkgPath())
 		}
 	} else {
-		fmt.Println("(none)")
+		buf += "No plugins"
 	}
+
+	return buf
+}
+
+func printVersionBanner() {
+	fmt.Println(versionBanner())
 }
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Show version information",
 	Run: func(cmd *cobra.Command, args []string) {
-		versionBanner()
+		printVersionBanner()
 
 		log.Debugf("Loading config from %s", configFile)
 		configFile, err := os.ReadFile(configFile)
@@ -46,7 +52,7 @@ var versionCmd = &cobra.Command{
 		if err != nil {
 			log.Fatal(err)
 		}
-		log.Debugln("Finished loading config")
+		log.Debug("Finished loading config")
 
 		_, birdVersion, err := bird.RunCommand("", c.BIRDSocket)
 		if err != nil {
