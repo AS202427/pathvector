@@ -10,7 +10,6 @@ define AS{{ $peer.ASN }}_{{ $peer.ProtocolName }}_IMPORT_v6 = {{ $peer.ImportLim
 {{ if IntDeref $peer.ExportLimit4 }}define AS{{ $peer.ASN }}_{{ $peer.ProtocolName }}_EXPORT_v4 = {{ $peer.ExportLimit4 }};{{ end }}
 {{ if IntDeref $peer.ExportLimit6 }}define AS{{ $peer.ASN }}_{{ $peer.ProtocolName }}_EXPORT_v6 = {{ $peer.ExportLimit6 }};{{ end }}
 
-{{ if BoolDeref $peer.FilterIRR }}
 {{ if not (Empty $peer.PrefixSet4) }}
 define AS{{ $peer.ASN }}_{{ $peer.ProtocolName }}_PFX_v4 = [
 {{ BirdSet $peer.PrefixSet4 }}
@@ -26,7 +25,6 @@ define AS{{ $peer.ASN }}_{{ $peer.ProtocolName }}_PFX_v6 = [
 {{ else }}
 define AS{{ $peer.ASN }}_{{ $peer.ProtocolName }}_PFX_v6 = -empty-;
 {{ end }}
-{{ end }}
 
 {{ if BoolDeref $peer.FilterASSet }}
 define AS{{ $peer.ASN }}_{{ $peer.ProtocolName }}_AS_SET_MEMBERS = [
@@ -37,7 +35,7 @@ define AS{{ $peer.ASN }}_{{ $peer.ProtocolName }}_AS_SET_MEMBERS = [
 {{ range $i, $neighbor := $peer.NeighborIPs }}
 {{ $af := "4" }}{{ if Contains $neighbor ":" }}{{ $af = "6" }}{{ end }}
 {{ $neighborNoIface := SplitFirst $neighbor "%" }}
-protocol bgp {{ UniqueProtocolName $peer.ProtocolName $af $peer.ASN }} {
+protocol bgp {{ UniqueProtocolName $peer.ProtocolName $peerName $af $peer.ASN $peer.Tags }} {
     local{{ if eq $af "4" }}{{ if $peer.Listen4 }} {{ $peer.Listen4 }}{{ end }}{{ else }}{{ if $peer.Listen6 }} {{ $peer.Listen6 }}{{ end }}{{ end }} as {{ if IntDeref $peer.LocalASN }}{{ IntDeref $peer.LocalASN }}{{ else }}ASN{{ end }}{{ if $peer.LocalPort }} port {{ $peer.LocalPort }}{{ end }};
     neighbor {{ $neighbor }} as {{ $peer.ASN }}{{ if $peer.NeighborPort }} port {{ $peer.NeighborPort }}{{ end }};
     {{ if StrDeref $peer.Description }}description "{{ StrDeref $peer.Description }}";{{ end }}
@@ -86,7 +84,8 @@ protocol bgp {{ UniqueProtocolName $peer.ProtocolName $af $peer.ASN }} {
         {{ if BoolDeref $peer.DisableAfterError }}disable after error on;{{ end }}
         {{ if BoolDeref $peer.PreferOlderRoutes }}prefer older on;{{ end }}
         import filter {
-            {{ if $global.NoAccept }}reject;{{ end }}
+            {{ if $global.NoAccept }}reject; # no-accept: true{{ end }}
+            {{ if (not (BoolDeref $peer.Import)) }}reject; # import: false{{ end }}
 
             {{ StrDeref $peer.PreImportFilter }}
 
@@ -99,8 +98,9 @@ protocol bgp {{ UniqueProtocolName $peer.ProtocolName $af $peer.ASN }} {
             {{ if BoolDeref $peer.EnforceFirstAS }}enforce_first_as({{ $peer.ASN }});{{ end }}
             {{ if BoolDeref $peer.EnforcePeerNexthop }}enforce_peer_nexthop({{ $neighborNoIface }});{{ end }}
             {{ if BoolDeref $peer.FilterTransitASNs }}reject_transit_paths();{{ end }}
-            {{ if BoolDeref $peer.FilterIRR }}if !(net ~ AS{{ $peer.ASN }}_{{ $peer.ProtocolName }}_PFX_v{{ $af }}) then { _reject("not in IRR prefix set"); }{{ end }}
+            {{ if or (not (Empty $peer.PrefixSet4)) (not (Empty $peer.PrefixSet6)) }}if !(net ~ AS{{ $peer.ASN }}_{{ $peer.ProtocolName }}_PFX_v{{ $af }}) then { _reject("not in prefix set"); }{{ end }}
             {{ if BoolDeref $peer.FilterASSet }}if !(bgp_path.first ~ AS{{ $peer.ASN }}_{{ $peer.ProtocolName }}_AS_SET_MEMBERS) then { _reject("not in AS set"); }{{ end }}
+            {{ if BoolDeref $peer.FilterBlocklist }}reject_blocklist();{{ end }}
 
             {{/* Transit Locking */}}
             {{ if StrSliceDeref $peer.TransitLock }}
@@ -141,8 +141,18 @@ protocol bgp {{ UniqueProtocolName $peer.ProtocolName $af $peer.ASN }} {
             {{ if BoolDeref $peer.SetLocalPref }}bgp_local_pref = {{ $peer.LocalPref }}; # pathvector:localpref{{ end }}
             {{ end }}
 
+            {{ if IntDeref $peer.LocalPref4 }}if (net.type = NET_IP4) then { bgp_local_pref = {{ $peer.LocalPref4 }}; }{{ end }}
+            {{ if IntDeref $peer.LocalPref6 }}if (net.type = NET_IP6) then { bgp_local_pref = {{ $peer.LocalPref6 }}; }{{ end }}
+
             {{ range $asn, $pref := Uint32MapDeref $peer.ASPrefs }}
             if ({{ $asn }} ~ bgp_path) then { bgp_local_pref = {{ $pref }}; }
+            {{ end }}
+
+            {{ range $community, $pref := StringUint32MapDeref $peer.StandardCommunityPrefs }}
+            if (({{ $community }}) ~ bgp_community) then { bgp_local_pref = {{ $pref }}; }
+            {{ end }}
+            {{ range $community, $pref := StringUint32MapDeref $peer.LargeCommunityPrefs }}
+            if (({{ $community }}) ~ bgp_large_community) then { bgp_local_pref = {{ $pref }}; }
             {{ end }}
 
             {{ if BoolDeref $peer.AllowBlackholeCommunity }}process_blackholes();{{ end }}
@@ -171,7 +181,8 @@ protocol bgp {{ UniqueProtocolName $peer.ProtocolName $af $peer.ASN }} {
         };
 
         export filter {
-            {{ if $global.NoAnnounce }}reject;{{ end }}
+            {{ if $global.NoAnnounce }}reject; # no-announce: true{{ end }}
+            {{ if (not (BoolDeref $peer.Export)) }}reject; # export: false{{ end }}
 
             {{ if not (Empty $peer.DontAnnounce) }}
             if (net ~ [
@@ -225,6 +236,16 @@ protocol bgp {{ UniqueProtocolName $peer.ProtocolName $af $peer.ASN }} {
 
             {{ if StrDeref $peer.ExportNextHop }}bgp_next_hop = {{ StrDeref $peer.ExportNextHop }};{{ end }}
 
+            {{ if BoolDeref $peer.BlackholeOut }}
+            set_blackhole();
+            {{ end }}
+
+            {{ if not (Empty $peer.OnlyAnnounce) }}
+            if !(net ~ [
+            {{ BirdSet $peer.OnlyAnnounce }}
+            ]) then _reject("prefix not in only-announce list");
+            {{ end }}
+
             {{ if BoolDeref $peer.AnnounceOriginated }}
             accept_local();
             {{ end }}
@@ -240,16 +261,6 @@ protocol bgp {{ UniqueProtocolName $peer.ProtocolName $af $peer.ASN }} {
             {{ if BoolDeref $peer.AnnounceDefault }}
             # Send default route
             if (proto = "default{{ $af }}") then accept;
-            {{ end }}
-
-            {{ if BoolDeref $peer.BlackholeOut }}
-            set_blackhole();
-            {{ end }}
-
-            {{ if not (Empty $peer.OnlyAnnounce) }}
-            if !(net ~ [
-            {{ BirdSet $peer.OnlyAnnounce }}
-            ]) then _reject("prefix not in only-announce list");
             {{ end }}
 
             {{ StrDeref $peer.PreExportFinal }}

@@ -101,6 +101,30 @@ Global BIRD configuration
 |------|---------|------------|
 | string   |       |          |
 
+### `blocklist`
+
+List of ASNs, prefixes, and IP addresses to block
+
+| Type | Default | Validation |
+|------|---------|------------|
+| []string   |       |          |
+
+### `blocklist-urls`
+
+List of URLs to fetch blocklists from
+
+| Type | Default | Validation |
+|------|---------|------------|
+| []string   |       |          |
+
+### `blocklist-files`
+
+List of files to fetch blocklists from
+
+| Type | Default | Validation |
+|------|---------|------------|
+| []string   |       |          |
+
 ### `origin-communities`
 
 List of communities to accept as locally originated routes
@@ -497,6 +521,14 @@ Kernel table
 |------|---------|------------|
 | int   |       |          |
 
+### `scan-time`
+
+Time in seconds between scans of the kernel routing table
+
+| Type | Default | Validation |
+|------|---------|------------|
+| int   | 10      |          |
+
 
 ## MRTInstance
 ### `file`
@@ -631,6 +663,14 @@ Peer description
 |------|---------|------------|
 | string   |       |          |
 
+### `tags`
+
+Peer tags
+
+| Type | Default | Validation |
+|------|---------|------------|
+| []string   |       |          |
+
 ### `disabled`
 
 Should the sessions be disabled?
@@ -638,6 +678,22 @@ Should the sessions be disabled?
 | Type | Default | Validation |
 |------|---------|------------|
 | bool   | false      |          |
+
+### `import`
+
+Import routes from this peer
+
+| Type | Default | Validation |
+|------|---------|------------|
+| bool   | true      |          |
+
+### `export`
+
+Export routes to this peer
+
+| Type | Default | Validation |
+|------|---------|------------|
+| bool   | true      |          |
 
 ### `asn`
 
@@ -686,6 +742,22 @@ BGP local preference
 | Type | Default | Validation |
 |------|---------|------------|
 | int   | 100      |          |
+
+### `local-pref4`
+
+IPv4 BGP local preference (overrides local-pref, not included in optimizer)
+
+| Type | Default | Validation |
+|------|---------|------------|
+| int   |       |          |
+
+### `local-pref6`
+
+IPv6 BGP local preference (overrides local-pref, not included in optimizer)
+
+| Type | Default | Validation |
+|------|---------|------------|
+| int   |       |          |
 
 ### `set-local-pref`
 
@@ -975,6 +1047,14 @@ Map of ASN to import local pref (not included in optimizer)
 |------|---------|------------|
 | map[uint32]uint32   |       |          |
 
+### `community-prefs`
+
+Map of community to import local pref (not included in optimizer)
+
+| Type | Default | Validation |
+|------|---------|------------|
+| map[string]uint32   |       |          |
+
 ### `as-set`
 
 Peer's as-set for filtering
@@ -1190,6 +1270,14 @@ Reject routes that aren't originated by an ASN within the authorized-providers m
 | Type | Default | Validation |
 |------|---------|------------|
 | bool   | false      |          |
+
+### `filter-blocklist`
+
+Reject ASNs, prefixes, and IPs in the global blocklist
+
+| Type | Default | Validation |
+|------|---------|------------|
+| bool   | true      |          |
 
 ### `transit-lock`
 

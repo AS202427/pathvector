@@ -15,11 +15,11 @@ peeringdb-test-harness:
 test-setup: dummy-iface peeringdb-test-harness
 
 test:
-	go test -race -coverprofile=coverage.txt -covermode=atomic ./pkg/... ./cmd/...
+	go test -v -race -coverprofile=coverage.txt -covermode=atomic ./pkg/... ./cmd/...
 
 test-teardown:
 	pkill -f tests/peeringdb/peeringdb-test-api.py
 	sudo ip link del dev dummy0
-	rm nohup.out
+	rm -f nohup.out
 
 test-sequence: test-setup test test-teardown

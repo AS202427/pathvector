@@ -32,6 +32,10 @@ kernel:
   statics:
     "192.0.2.0/24": "203.0.113.1%eth0"
 
+blocklist: [ "AS65530", "192.0.2.0/24" ]
+blocklist-urls: [ "https://raw.githubusercontent.com/natesales/pathvector/main/tests/blocklist.txt" ]
+blocklist-files: [ "../tests/blocklist.txt" ]
+
 vrrp:
   VRRP 1:
     state: primary
@@ -108,3 +112,11 @@ peers:
     filter-aspa: true
 #    require-roles: true
 #    role: peer
+    local-pref4: 200
+    local-pref6: 300
+    community-prefs:
+      65510,30: 100
+      65510,20: 200
+      65510,20,30: 300
+    tags:
+      - ixp

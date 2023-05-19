@@ -28,8 +28,8 @@ jobs:
           args: -E gosec
 
       - run: go get -v -t -d ./...
-
       - run: sudo chown $(whoami):$(whoami) /run/bird/bird.ctl
+      - run: sudo chown -R $(whoami):$(whoami) /etc/bird/
       - run: go generate -x
       - run: go build -v .
       - run: make dep

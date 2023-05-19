@@ -63,7 +63,7 @@ protocol device {};
 protocol direct { ipv4; ipv6; }
 
 protocol kernel {
-  scan time 10;
+  scan time {{ .Kernel.ScanTime }};
   {{ if .Kernel.Learn }}learn;{{ end }}
   {{ if .Kernel.Table }}kernel table {{ .Kernel.Table }};{{ end }}
   ipv4 {
@@ -105,7 +105,7 @@ protocol kernel {
 }
 
 protocol kernel {
-  scan time 10;
+  scan time {{ .Kernel.ScanTime }};
   {{ if .Kernel.Learn }}learn;{{ end }}
   {{ if .Kernel.Table }}kernel table {{ .Kernel.Table }};{{ end }}
   ipv6 {
@@ -210,10 +210,29 @@ define BOGON_ASNS = [
 {{ BirdSet .BogonASNs }}
 ];
 
+# Blocklist
+
+{{ if gt (len .BlocklistASNs) 0 }}
+define BLOCKLIST_ASNS = [
+{{ BirdASSet .BlocklistASNs }}
+];
+{{ end }}
+
+{{ if gt (len .BlocklistPrefixes) 0 }}
+define BLOCKLIST_PREFIXES = [
+{{ BirdSet .BlocklistPrefixes }}
+];
+{{ end }}
+
 # Helper Functions
 
 function _reject(string reason) {
   reject "REJECTED [", reason, "] pfx ", net, " session ", proto, " path ", bgp_path, " pathlen ", bgp_path.len, " origin ", bgp_path.last;
+}
+
+function reject_blocklist() {
+  {{ if gt (len .BlocklistPrefixes) 0 }}if (net ~ BLOCKLIST_PREFIXES) then { _reject("prefix in blocklist"); }{{ end }}
+  {{ if gt (len .BlocklistASNs) 0 }}if (bgp_path ~ BLOCKLIST_ASNS) then { _reject("ASN in blocklist"); }{{ end }}
 }
 
 # Filtering Functions
@@ -239,6 +258,7 @@ function reject_bogon_asns() {
   if (bgp_path ~ BOGON_ASNS) then {
     {{ if .BlackholeBogonASNs }}
     set_blackhole();
+    accept;
     {{ end }}
     _reject("bogon ASN in path");
   }

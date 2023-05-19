@@ -93,8 +93,12 @@ var defaultBogonASNs = []string{
 type Peer struct {
 	Template *string `yaml:"template" description:"Configuration template" default:"-"`
 
-	Description *string `yaml:"description" description:"Peer description" default:"-"`
-	Disabled    *bool   `yaml:"disabled" description:"Should the sessions be disabled?" default:"false"`
+	Description *string   `yaml:"description" description:"Peer description" default:"-"`
+	Tags        *[]string `yaml:"tags" description:"Peer tags" default:"-"`
+	Disabled    *bool     `yaml:"disabled" description:"Should the sessions be disabled?" default:"false"`
+
+	Import *bool `yaml:"import" description:"Import routes from this peer" default:"true"`
+	Export *bool `yaml:"export" description:"Export routes to this peer" default:"true"`
 
 	// BGP Attributes
 	ASN                    *int      `yaml:"asn" description:"Local ASN" validate:"required" default:"0"`
@@ -103,6 +107,8 @@ type Peer struct {
 	PrependPath            *[]uint32 `yaml:"prepend-path" description:"List of ASNs to prepend" default:"-"`
 	ClearPath              *bool     `yaml:"clear-path" description:"Remove all ASNs from path (before prepends and prepend-path)" default:"false"`
 	LocalPref              *int      `yaml:"local-pref" description:"BGP local preference" default:"100"`
+	LocalPref4             *int      `yaml:"local-pref4" description:"IPv4 BGP local preference (overrides local-pref, not included in optimizer)" default:"-"`
+	LocalPref6             *int      `yaml:"local-pref6" description:"IPv6 BGP local preference (overrides local-pref, not included in optimizer)" default:"-"`
 	SetLocalPref           *bool     `yaml:"set-local-pref" description:"Should an explicit local pref be set?" default:"true"`
 	Multihop               *bool     `yaml:"multihop" description:"Should BGP multihop be enabled? (255 max hops)" default:"false"`
 	Listen4                *string   `yaml:"listen4" description:"IPv4 BGP listen address" default:"-"`
@@ -142,6 +148,10 @@ type Peer struct {
 
 	ASPrefs *map[uint32]uint32 `yaml:"as-prefs" description:"Map of ASN to import local pref (not included in optimizer)" default:"-"`
 
+	CommunityPrefs         *map[string]uint32 `yaml:"community-prefs" description:"Map of community to import local pref (not included in optimizer)" default:"-"`
+	StandardCommunityPrefs *map[string]uint32 `yaml:"-" description:"-" default:"-"`
+	LargeCommunityPrefs    *map[string]uint32 `yaml:"-" description:"-" default:"-"`
+
 	// Filtering
 	ASSet *string `yaml:"as-set" description:"Peer's as-set for filtering" default:"-"`
 
@@ -176,6 +186,7 @@ type Peer struct {
 	FilterNeverViaRouteServers *bool `yaml:"filter-never-via-route-servers" description:"Should routes containing an ASN reported in PeeringDB to never be reachable via route servers be filtered?" default:"false"`
 	FilterASSet                *bool `yaml:"filter-as-set" description:"Reject routes that aren't originated by an ASN within this peer's AS set" default:"false"`
 	FilterASPA                 *bool `yaml:"filter-aspa" description:"Reject routes that aren't originated by an ASN within the authorized-providers map" default:"false"`
+	FilterBlocklist            *bool `yaml:"filter-blocklist" description:"Reject ASNs, prefixes, and IPs in the global blocklist" default:"true"`
 
 	TransitLock *[]string `yaml:"transit-lock" description:"Reject routes that aren't transited by an AS in this list" default:"-"`
 
@@ -272,6 +283,7 @@ type Kernel struct {
 	Export          bool              `yaml:"export" description:"Export routes to kernel routing table" default:"true"`
 	RejectConnected bool              `yaml:"reject-connected" description:"Don't export connected routes (RTS_DEVICE) to kernel?'" default:"false"`
 	Table           int               `yaml:"table" description:"Kernel table"`
+	ScanTime        int               `yaml:"scan-time" description:"Time in seconds between scans of the kernel routing table" default:"10"`
 
 	SRDStandardCommunities []string          `yaml:"-" description:"-"`
 	SRDLargeCommunities    []string          `yaml:"-" description:"-"`
@@ -320,6 +332,13 @@ type Config struct {
 	WebUIFile             string `yaml:"web-ui-file" description:"File to write web UI to (disabled if empty)" default:""`
 	LogFile               string `yaml:"log-file" description:"Log file location" default:"syslog"`
 	GlobalConfig          string `yaml:"global-config" description:"Global BIRD configuration" default:""`
+
+	Blocklist      []string `yaml:"blocklist" description:"List of ASNs, prefixes, and IP addresses to block" default:""`
+	BlocklistURLs  []string `yaml:"blocklist-urls" description:"List of URLs to fetch blocklists from" default:""`
+	BlocklistFiles []string `yaml:"blocklist-files" description:"List of files to fetch blocklists from" default:""`
+
+	BlocklistASNs     []uint32 `yaml:"-" description:"-"`
+	BlocklistPrefixes []string `yaml:"-" description:"-"`
 
 	OriginCommunities []string `yaml:"origin-communities" description:"List of communities to accept as locally originated routes" default:""`
 	LocalCommunities  []string `yaml:"local-communities" description:"List of communities to add to locally originated prefixes" default:""`
