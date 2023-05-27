@@ -131,17 +131,19 @@ func Update(peerData *config.Peer, irrServer string, queryTimeout uint, bgpqArgs
 		bgpqArgs6 += "-R 48"
 	}
 
-	prefixesFromIRR4, err := PrefixSet(*peerData.ASSet, 4, irrServer, queryTimeout, bgpqArgs4)
-	if err != nil {
-		return fmt.Errorf("unable to get IPv4 IRR prefix list from %s: %s", *peerData.ASSet, err)
-	}
-	if peerData.PrefixSet4 == nil {
-		peerData.PrefixSet4 = &[]string{}
-	}
-	pfx4 := append(*peerData.PrefixSet4, prefixesFromIRR4...)
-	peerData.PrefixSet4 = &pfx4
-	if len(pfx4) == 0 && hasNeighbor4 {
-		log.Warnf("peer has IPv4 session(s) but no IPv4 prefixes")
+	if hasNeighbor4 {
+		prefixesFromIRR4, err := PrefixSet(*peerData.ASSet, 4, irrServer, queryTimeout, bgpqArgs4)
+		if err != nil {
+			return fmt.Errorf("unable to get IPv4 IRR prefix list from %s: %s", *peerData.ASSet, err)
+		}
+		if peerData.PrefixSet4 == nil {
+			peerData.PrefixSet4 = &[]string{}
+		}
+		pfx4 := append(*peerData.PrefixSet4, prefixesFromIRR4...)
+		peerData.PrefixSet4 = &pfx4
+		if len(pfx4) == 0 && hasNeighbor4 {
+			log.Warnf("peer has IPv4 session(s) but no IPv4 prefixes")
+		}
 	}
 
 	prefixesFromIRR6, err := PrefixSet(*peerData.ASSet, 6, irrServer, queryTimeout, bgpqArgs6)
