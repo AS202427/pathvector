@@ -3,7 +3,6 @@ package peeringdb
 import (
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"net/http"
@@ -17,11 +16,13 @@ import (
 	"github.com/natesales/pathvector/pkg/irr"
 )
 
-func endpoint() string {
-	if flag.Lookup("test.v") == nil {
-		return "https://www.peeringdb.com/api"
-	} else {
-		return "http://localhost:5000/api"
+// Endpoint is a public value to allow setting to a cache server
+var Endpoint = ""
+
+func init() {
+	// Check if running in test
+	if os.Getenv("PATHVECTOR_TEST") == "1" {
+		Endpoint = "http://localhost:5000/api"
 	}
 }
 
@@ -69,7 +70,7 @@ var (
 // networkInfo returns PeeringDB for an ASN
 func networkInfo(asn uint32, queryTimeout uint, apiKey string) (*Data, error) {
 	httpClient := http.Client{Timeout: time.Second * time.Duration(queryTimeout)}
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf(endpoint()+"/net?asn=%d", asn), nil)
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf(Endpoint+"/net?asn=%d", asn), nil)
 
 	if apiKey != "" {
 		req.Header.Add("AUTHORIZATION", "Api-Key "+apiKey)
@@ -176,7 +177,7 @@ func Update(peerData *config.Peer, queryTimeout uint, apiKey string, useCache bo
 // NeverViaRouteServers gets a list of networks that report should never be reachable via route servers
 func NeverViaRouteServers(queryTimeout uint, apiKey string) ([]uint32, error) {
 	httpClient := http.Client{Timeout: time.Second * time.Duration(queryTimeout)}
-	req, err := http.NewRequest(http.MethodGet, endpoint()+"/net?info_never_via_route_servers=1", nil)
+	req, err := http.NewRequest(http.MethodGet, Endpoint+"/net?info_never_via_route_servers=1", nil)
 	if err != nil {
 		return nil, fmt.Errorf("PeeringDB GET: %s", err)
 	}
@@ -222,7 +223,7 @@ func NeverViaRouteServers(queryTimeout uint, apiKey string) ([]uint32, error) {
 // IXLANs gets PeeringDB IX LANs for an ASN
 func IXLANs(asn uint32, peeringDbQueryTimeout uint, apiKey string) ([]IxLanData, error) {
 	httpClient := http.Client{Timeout: time.Second * time.Duration(peeringDbQueryTimeout)}
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf(endpoint()+"/netixlan?asn=%d", asn), nil)
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf(Endpoint+"/netixlan?asn=%d", asn), nil)
 	if err != nil {
 		return nil, fmt.Errorf("PeeringDB GET (This peer might not have a PeeringDB page): %s", err)
 	}
